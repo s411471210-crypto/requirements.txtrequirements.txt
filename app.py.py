@@ -129,25 +129,47 @@ with st.sidebar:
 tab1, tab2, tab3 = st.tabs(["📝 視覺標註預覽", "✏️ 標註微調與校對", "💾 匯出資料庫 (JSON/Doccano)"])
 
 with tab1:
-    st.subheader("📄 匯入或貼上文件")
+    st.subheader("📄 匯入文件或載入歷史進度")
     
-    # 檔案上傳區塊
-    uploaded_file = st.file_uploader("📂 請上傳文字檔 (.txt)", type=["txt"])
+    # 檔案上傳區塊 (支援 txt 與 json 進度檔)
+    uploaded_file = st.file_uploader(
+        "📂 請上傳新文字檔 (.txt) 或先前儲存的標註進度檔 (.json)", 
+        type=["txt", "json"]
+    )
+    
     if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
-        try:
-            file_text = bytes_data.decode("utf-8")
-        except UnicodeDecodeError:
-            try:
-                file_text = bytes_data.decode("big5")
-            except UnicodeDecodeError:
-                file_text = bytes_data.decode("utf-8-sig", errors="ignore")
+        file_name = uploaded_file.name
         
-        if file_text != st.session_state.text:
-            st.session_state.text = file_text
-            st.session_state.entities = auto_annotate(file_text, DEFAULT_VOCAB)
-            st.success(f"已成功匯入檔案：{uploaded_file.name}")
-            st.rerun()
+        # 情境 A：載入歷史 JSON 進度檔
+        if file_name.endswith(".json"):
+            try:
+                progress_data = json.load(uploaded_file)
+                if "text" in progress_data and "entities" in progress_data:
+                    st.session_state.text = progress_data["text"]
+                    st.session_state.entities = progress_data["entities"]
+                    st.success(f"已成功載入歷史標註進度：{file_name}")
+                    st.rerun()
+                else:
+                    st.error("JSON 格式不相符，檔案必須包含 'text' 與 'entities' 欄位。")
+            except Exception as e:
+                st.error(f"無法讀取 JSON 檔案：{e}")
+
+        # 情境 B：匯入新 TXT 文字檔
+        elif file_name.endswith(".txt"):
+            bytes_data = uploaded_file.getvalue()
+            try:
+                file_text = bytes_data.decode("utf-8")
+            except UnicodeDecodeError:
+                try:
+                    file_text = bytes_data.decode("big5")
+                except UnicodeDecodeError:
+                    file_text = bytes_data.decode("utf-8-sig", errors="ignore")
+            
+            if file_text != st.session_state.text:
+                st.session_state.text = file_text
+                st.session_state.entities = auto_annotate(file_text, DEFAULT_VOCAB)
+                st.success(f"已成功匯入新文件：{file_name}")
+                st.rerun()
 
     # 文字編輯/貼上區塊
     input_text = st.text_area("或在此直接貼上/修改文字：", value=st.session_state.text, height=150)
@@ -226,7 +248,7 @@ with tab3:
         "label": [[e["start"], e["end"], e["label"]] for e in st.session_state.entities]
     }
 
-    st.markdown("#### 1. 標準 Offset JSON 格式 (spaCy / 自訂訓練)")
+    st.markdown("#### 1. 標準 Offset JSON 格式 (可於日後重新載入繼續標註)")
     st.json(export_data)
     st.download_button(
         label="下載 Standard JSON",
