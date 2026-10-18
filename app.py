@@ -1,3 +1,5 @@
+import streamlit as st
+import docx
 import io
 import json
 import re
@@ -904,8 +906,6 @@ with tab4:
             st.markdown(f"**【概念定義】**：{info['definition']}")
             st.markdown(f"**【成立要件 / 特徵】**：\n{info['elements']}")
             st.markdown(f"**【實務範例】**：{info['example']}")
-streamlit
-python-docx
 
 
 
